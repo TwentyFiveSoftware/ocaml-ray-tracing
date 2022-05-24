@@ -9,9 +9,17 @@ type ray = {
   direction: vec3;
 };;
 
+type material_type = Diffuse | Metal;;
+
+type material = {
+  material_type: material_type;
+  albedo: vec3;
+};;
+
 type sphere = {
   center: vec3;
   radius: float;
+  material: material;
 };;
 
 type camera = {
@@ -25,12 +33,16 @@ type hit_record = {
   point: vec3;
   normal: vec3;
   front_facing: bool;
+  material: material;
 };;
 
 
 let (width, height) = (300, 200);;
+let max_ray_recursive_depth = 50;;
 
-let spheres: sphere list = [{center = {x = 0.; y = 0.; z = 1.}; radius = 0.5}];;
+let spheres: sphere list = [
+  {center = {x = 0.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Diffuse; albedo = {x = 0.9; y = 0.9; z = 0.9}}}
+];;
 
 
 let aspect_ratio = float_of_int width /. float_of_int height;;
@@ -52,8 +64,12 @@ let normalize = fun vec ->
   let length = sqrt(vec.x *. vec.x +. vec.y *. vec.y +. vec.z *. vec.z) in
     {x = vec.x /. length; y = vec.y /. length; z = vec.z /. length};;
 
+let vec_mul = fun a b ->
+  {x = a.x *. b.x; y = a.y *. b.y; z = a.z *. b.z};;
+
 let empty_hit_record = fun _ -> 
-  {hit = false; t = 0.0; point = {x = 0.0; y = 0.0; z = 0.0}; normal = {x = 0.0; y = 0.0; z = 0.0}; front_facing = true};;
+  {hit = false; t = 0.0; point = {x = 0.0; y = 0.0; z = 0.0}; normal = {x = 0.0; y = 0.0; z = 0.0}; front_facing = true;
+  material = {material_type = Diffuse; albedo = {x = 0.0; y = 0.0; z = 0.0}}};;
 
 let ray_hits_sphere = fun ray sphere ->
   (* {hit = true; t = 0.0; point = {x = 0.0; y = 0.0; z = 0.0}; normal = {x = 0.0; y = 0.0; z = 0.0}; front_facing = true};; *)
@@ -61,7 +77,7 @@ let ray_hits_sphere = fun ray sphere ->
 
 let calculate_ray_collision = fun ray ->
   let hit_records = List.map (fun sphere -> ray_hits_sphere ray sphere) spheres in
-  let colliding_hit_records = List.filter (fun hit_record -> hit_record.hit) hit_records in
+  let colliding_hit_records = List.filter (fun hit_record -> hit_record.hit && hit_record.t > 0.001) hit_records in
   let sorted_records = List.sort (fun a b -> if a.t > b.t then 1 else -1) colliding_hit_records in
   match sorted_records with
   | [] -> empty_hit_record ()
@@ -72,13 +88,17 @@ let lerp = fun a b t ->
    y = a.y *. (1.0 -. t) +. b.y *. t;
    z = a.z *. (1.0 -. t) +. b.z *. t}
 
-let ray_color = fun ray -> 
-  let hit_record = calculate_ray_collision ray in
-  if hit_record.hit then
-    hit_record.normal
-  else 
-    let t = ((normalize ray.direction).y +. 1.0) *. 0.5 in
-    lerp {x = 1.0; y = 1.0; z = 1.0} {x = 0.3; y = 0.5; z = 0.8} t;;
+let rec ray_color = fun ray depth -> 
+  if depth >= max_ray_recursive_depth then
+    {x = 0.0; y = 0.0; z = 0.0}
+  else
+    let hit_record = calculate_ray_collision ray in
+    if hit_record.hit then
+      let diffuse_ray = {origin = hit_record.point; direction = hit_record.normal} in
+      vec_mul hit_record.material.albedo (ray_color diffuse_ray (depth + 1))
+    else 
+      let t = ((normalize ray.direction).y +. 1.0) *. 0.5 in
+      lerp {x = 1.0; y = 1.0; z = 1.0} {x = 0.3; y = 0.5; z = 0.8} t;;
 
 let calculate_pixel_color = fun (x, y) -> 
   let (u, v) = (float_of_int x /. float_of_int (width - 1), float_of_int y /. float_of_int (height - 1)) in 
@@ -89,7 +109,7 @@ let calculate_pixel_color = fun (x, y) ->
       y = camera.upper_left_corner.y -. viewport_height *. v;
       z = camera.upper_left_corner.z;
     }
-  };;
+  } 0;;
 
 let rec ray_trace = fun i -> 
   if i >= width * height then []
