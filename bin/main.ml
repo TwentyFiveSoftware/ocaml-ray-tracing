@@ -23,7 +23,7 @@ type sphere = {
 };;
 
 type camera = {
-  origin: vec3;
+  look_from: vec3;
   upper_left_corner: vec3;
 };;
 
@@ -32,7 +32,7 @@ type hit_record = {
   t: float;
   point: vec3;
   normal: vec3;
-  front_facing: bool;
+  front_face: bool;
   material: material;
 };;
 
@@ -56,27 +56,74 @@ let upper_left_corner = {
   z = focal_length -. origin.z
 };;
 
-let camera: camera = {origin; upper_left_corner};;
+let camera: camera = {look_from = origin; upper_left_corner};;
 
 
+
+let vec_length_squared = fun vec ->
+  vec.x *. vec.x +. vec.y *. vec.y +. vec.z *. vec.z;;
+
+let vec_length = fun vec -> sqrt(vec_length_squared(vec));;
 
 let normalize = fun vec ->
-  let length = sqrt(vec.x *. vec.x +. vec.y *. vec.y +. vec.z *. vec.z) in
+  let length = vec_length vec in
     {x = vec.x /. length; y = vec.y /. length; z = vec.z /. length};;
+
+let vec_neg = fun vec ->
+  {x = -.vec.x; y = -.vec.y; z = -.vec.z};;
+      
+let vec_add = fun a b ->
+  {x = a.x +. b.x; y = a.y +. b.y; z = a.z +. b.z};;
+
+let vec_sub = fun a b ->
+  {x = a.x -. b.x; y = a.y -. b.y; z = a.z -. b.z};;
+
+let vec_mul_scalar = fun vec scalar ->
+  {x = vec.x *. scalar; y = vec.y *. scalar; z = vec.z *. scalar};;
 
 let vec_mul = fun a b ->
   {x = a.x *. b.x; y = a.y *. b.y; z = a.z *. b.z};;
+  
+let vec_dot = fun a b ->
+  a.x *. b.x +. a.y *. b.y +. a.z *. b.z;;
+
+let vec_zero = fun _ -> {x = 0.0; y = 0.0; z = 0.0};;
+
+let ray_at = fun ray t ->
+  vec_add ray.origin (vec_mul_scalar ray.direction t);;
+
+let empty_ray = fun _ -> {origin = vec_zero (); direction = vec_zero ()};;
 
 let empty_hit_record = fun _ -> 
-  {hit = false; t = 0.0; point = {x = 0.0; y = 0.0; z = 0.0}; normal = {x = 0.0; y = 0.0; z = 0.0}; front_facing = true;
-  material = {material_type = Diffuse; albedo = {x = 0.0; y = 0.0; z = 0.0}}};;
+  {hit = false; t = 0.0; point = vec_zero (); normal = vec_zero (); front_face = true;
+  material = {material_type = Diffuse; albedo = vec_zero ()}};;
 
-let ray_hits_sphere = fun ray sphere ->
-  (* {hit = true; t = 0.0; point = {x = 0.0; y = 0.0; z = 0.0}; normal = {x = 0.0; y = 0.0; z = 0.0}; front_facing = true};; *)
-  empty_hit_record ();;
+let ray_hits_sphere = fun ray sphere t_min ->
+  let oc = vec_sub ray.origin sphere.center in
+  let a = vec_length_squared ray.direction in
+  let half_b = vec_dot oc ray.direction in
+  let c = vec_length_squared oc -. sphere.radius *. sphere.radius in
+  let discriminant = half_b *. half_b -. a *. c in
+  
+  if discriminant < 0. then
+    empty_hit_record ()
+  else 
+    let sqrt_d = sqrt discriminant in
+    let root_1 = (-.half_b -. sqrt_d) /. a in
+    let root_2 = (-.half_b +. sqrt_d) /. a in
+    let t = if root_1 > t_min && root_1 < root_2 then root_1 else if root_2 > t_min then root_2 else -1.0 in
+    if t < 0.0 then
+      empty_hit_record ()
+    else
+      let point = ray_at ray t in
+      let outward_normal = vec_mul_scalar (vec_sub point sphere.center) (1.0 /. sphere.radius) in
+      let front_face = vec_dot ray.direction outward_normal < 0.0 in
+      let normal = if front_face then outward_normal else vec_neg outward_normal in
+      {hit = true; t; point; normal; front_face; material = sphere.material};;
+
 
 let calculate_ray_collision = fun ray ->
-  let hit_records = List.map (fun sphere -> ray_hits_sphere ray sphere) spheres in
+  let hit_records = List.map (fun sphere -> ray_hits_sphere ray sphere 0.001) spheres in
   let colliding_hit_records = List.filter (fun hit_record -> hit_record.hit && hit_record.t > 0.001) hit_records in
   let sorted_records = List.sort (fun a b -> if a.t > b.t then 1 else -1) colliding_hit_records in
   match sorted_records with
@@ -90,7 +137,7 @@ let lerp = fun a b t ->
 
 let rec ray_color = fun ray depth -> 
   if depth >= max_ray_recursive_depth then
-    {x = 0.0; y = 0.0; z = 0.0}
+    vec_zero ()
   else
     let hit_record = calculate_ray_collision ray in
     if hit_record.hit then
@@ -98,12 +145,12 @@ let rec ray_color = fun ray depth ->
       vec_mul hit_record.material.albedo (ray_color diffuse_ray (depth + 1))
     else 
       let t = ((normalize ray.direction).y +. 1.0) *. 0.5 in
-      lerp {x = 1.0; y = 1.0; z = 1.0} {x = 0.3; y = 0.5; z = 0.8} t;;
+      lerp {x = 1.0; y = 1.0; z = 1.0} {x = 0.5; y = 0.7; z = 1.0} t;;
 
 let calculate_pixel_color = fun (x, y) -> 
   let (u, v) = (float_of_int x /. float_of_int (width - 1), float_of_int y /. float_of_int (height - 1)) in 
   ray_color {
-    origin = camera.origin; 
+    origin = camera.look_from; 
     direction = {
       x = camera.upper_left_corner.x +. viewport_width *. u;
       y = camera.upper_left_corner.y -. viewport_height *. v;
