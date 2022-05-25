@@ -36,6 +36,12 @@ type hit_record = {
   material: material;
 };;
 
+type scatter_record = {
+  does_scatter: bool;
+  attenuation: vec3;
+  scattered_ray: ray;
+};;
+
 
 let (width, height) = (300, 200);;
 let max_ray_recursive_depth = 50;;
@@ -98,6 +104,18 @@ let empty_hit_record = fun _ ->
   {hit = false; t = 0.0; point = vec_zero (); normal = vec_zero (); front_face = true;
   material = {material_type = Diffuse; albedo = vec_zero ()}};;
 
+let empty_scatter_record = fun _ ->
+  {does_scatter = false; attenuation = vec_zero (); scattered_ray = empty_ray ()};;
+
+let scatter_material_diffuse = fun hit_record ->
+  let scattered_ray = {origin = hit_record.point; direction = hit_record.normal} in
+  {does_scatter = true; attenuation = hit_record.material.albedo; scattered_ray};;
+
+let scatter = fun ray hit_record ->
+  match hit_record.material.material_type with
+  | Diffuse -> scatter_material_diffuse hit_record
+  | _ -> empty_scatter_record ()
+
 let ray_hits_sphere = fun ray sphere t_min ->
   let oc = vec_sub ray.origin sphere.center in
   let a = vec_length_squared ray.direction in
@@ -141,8 +159,11 @@ let rec ray_color = fun ray depth ->
   else
     let hit_record = calculate_ray_collision ray in
     if hit_record.hit then
-      let diffuse_ray = {origin = hit_record.point; direction = hit_record.normal} in
-      vec_mul hit_record.material.albedo (ray_color diffuse_ray (depth + 1))
+      let scatter_record = scatter ray hit_record in
+      if scatter_record.does_scatter then
+        vec_mul scatter_record.attenuation (ray_color scatter_record.scattered_ray (depth + 1))
+      else
+        vec_zero ()
     else 
       let t = ((normalize ray.direction).y +. 1.0) *. 0.5 in
       lerp {x = 1.0; y = 1.0; z = 1.0} {x = 0.5; y = 0.7; z = 1.0} t;;
