@@ -1,1 +1,3 @@
 _build
+bin/ray_tracing.exe
+render.png

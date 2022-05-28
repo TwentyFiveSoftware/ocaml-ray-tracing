@@ -1,4 +1,5 @@
 (executable
  (public_name ray_tracing)
- (name main)
- (libraries ray_tracing))
+ (name ray_tracing)
+ (libraries imagelib imagelib.unix)
+ (promote))

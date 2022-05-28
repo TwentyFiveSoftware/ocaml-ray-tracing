@@ -9,7 +9,8 @@ type ray = {
   direction: vec3;
 };;
 
-type material_type = Diffuse | Metal;;
+(* type material_type = Diffuse | Metal;; *)
+type material_type = Diffuse;;
 
 type material = {
   material_type: material_type;
@@ -98,23 +99,24 @@ let vec_zero = fun _ -> {x = 0.0; y = 0.0; z = 0.0};;
 let ray_at = fun ray t ->
   vec_add ray.origin (vec_mul_scalar ray.direction t);;
 
-let empty_ray = fun _ -> {origin = vec_zero (); direction = vec_zero ()};;
+(* let empty_ray = fun _ -> {origin = vec_zero (); direction = vec_zero ()};; *)
 
 let empty_hit_record = fun _ -> 
   {hit = false; t = 0.0; point = vec_zero (); normal = vec_zero (); front_face = true;
   material = {material_type = Diffuse; albedo = vec_zero ()}};;
 
-let empty_scatter_record = fun _ ->
-  {does_scatter = false; attenuation = vec_zero (); scattered_ray = empty_ray ()};;
+(* let empty_scatter_record = fun _ ->
+  {does_scatter = false; attenuation = vec_zero (); scattered_ray = empty_ray ()};; *)
 
 let scatter_material_diffuse = fun hit_record ->
   let scattered_ray = {origin = hit_record.point; direction = hit_record.normal} in
   {does_scatter = true; attenuation = hit_record.material.albedo; scattered_ray};;
 
-let scatter = fun ray hit_record ->
+(* let scatter = fun ray hit_record -> *)
+let scatter = fun hit_record ->
   match hit_record.material.material_type with
   | Diffuse -> scatter_material_diffuse hit_record
-  | _ -> empty_scatter_record ()
+  (* | Metal -> empty_scatter_record () *)
 
 let ray_hits_sphere = fun ray sphere t_min ->
   let oc = vec_sub ray.origin sphere.center in
@@ -159,7 +161,8 @@ let rec ray_color = fun ray depth ->
   else
     let hit_record = calculate_ray_collision ray in
     if hit_record.hit then
-      let scatter_record = scatter ray hit_record in
+      (* let scatter_record = scatter ray hit_record in *)
+      let scatter_record = scatter hit_record in
       if scatter_record.does_scatter then
         vec_mul scatter_record.attenuation (ray_color scatter_record.scattered_ray (depth + 1))
       else
@@ -179,9 +182,17 @@ let calculate_pixel_color = fun (x, y) ->
     }
   } 0;;
 
-let rec ray_trace = fun i -> 
-  if i >= width * height then []
+let rec ray_trace = fun ?(i=0) img -> 
+  if i >= width * height then ()
   else
-    calculate_pixel_color (i mod width, i / width) :: ray_trace (i + 1);;
+    let (x, y) = (i mod width, i / width) in
+    let raw_color = calculate_pixel_color (x, y) in
+    let color = vec_mul_scalar raw_color 255.0 in
+    let (r, g, b) = (int_of_float color.x, int_of_float color.y, int_of_float color.z) in
+    let _ = Image.write_rgb img x y r g b in
+    ray_trace img ~i: (i + 1);;
 
-ray_trace 0;;
+    
+let img: Image.image = Image.create_rgb width height ~alpha: false ~max_val: 255;;
+ray_trace img;;
+ImageLib.PNG.write (ImageUtil_unix.chunk_writer_of_path "render.png") img;;
