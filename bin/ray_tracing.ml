@@ -9,8 +9,7 @@ type ray = {
   direction: vec3;
 };;
 
-(* type material_type = Diffuse | Metal;; *)
-type material_type = Diffuse;;
+type material_type = Diffuse | Metal;;
 
 type material = {
   material_type: material_type;
@@ -48,7 +47,8 @@ let max_ray_recursive_depth = 50;;
 let samples_per_pixel = 10;;
 
 let spheres: sphere list = [
-  {center = {x = 0.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Diffuse; albedo = {x = 0.9; y = 0.9; z = 0.9}}}
+  {center = {x = 0.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Diffuse; albedo = {x = 0.9; y = 0.9; z = 0.9}}};
+  {center = {x = -1.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Metal; albedo = {x = 0.9; y = 0.9; z = 0.9}}}
 ];;
 
 
@@ -106,6 +106,9 @@ let vec_is_near_zero vec =
   let epsilon = 1e-8 in
   (abs_float vec.x) < epsilon && (abs_float vec.y) < epsilon && (abs_float vec.z) < epsilon
 
+let vec_reflect vec normal =
+  vec_sub vec (vec_mul_scalar normal (2.0 *. vec_dot vec normal))
+
 let ray_at ray t =
   vec_add ray.origin (vec_mul_scalar ray.direction t);;
 
@@ -115,10 +118,15 @@ let scatter_material_diffuse hit_record =
   let scattered_ray = {origin = hit_record.point; direction = scatter_direction} in
   {does_scatter = true; attenuation = hit_record.material.albedo; scattered_ray};;
 
-let scatter hit_record =
+let scatter_material_metal hit_record ray =
+  let scatter_direction = vec_reflect (normalize ray.direction) hit_record.normal in
+  let scattered_ray = {origin = hit_record.point; direction = scatter_direction} in
+  {does_scatter = true; attenuation = hit_record.material.albedo; scattered_ray};;
+
+let scatter hit_record ray =
   match hit_record.material.material_type with
   | Diffuse -> scatter_material_diffuse hit_record
-  (* | Metal -> empty_scatter_record () *)
+  | Metal -> scatter_material_metal hit_record ray
 
 let ray_hits_sphere ray sphere t_min =
   let oc = vec_sub ray.origin sphere.center in
@@ -164,7 +172,7 @@ let rec ray_color ?(depth=0) ray =
     let hit_record = calculate_ray_collision ray in
     match hit_record with
     | Some hit_record ->
-      let scatter_record = scatter hit_record in
+      let scatter_record = scatter hit_record ray in
       if scatter_record.does_scatter then
         vec_mul scatter_record.attenuation (ray_color scatter_record.scattered_ray ~depth: (depth + 1))
       else
