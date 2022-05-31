@@ -45,6 +45,7 @@ type scatter_record = {
 
 let (width, height) = (800, 450);;
 let max_ray_recursive_depth = 50;;
+let samples_per_pixel = 10;;
 
 let spheres: sphere list = [
   {center = {x = 0.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Diffuse; albedo = {x = 0.9; y = 0.9; z = 0.9}}}
@@ -156,7 +157,7 @@ let lerp a b t =
    y = a.y *. (1.0 -. t) +. b.y *. t;
    z = a.z *. (1.0 -. t) +. b.z *. t}
 
-let rec ray_color ray depth =
+let rec ray_color ?(depth=0) ray =
   if depth >= max_ray_recursive_depth then
     vec_zero
   else
@@ -165,30 +166,37 @@ let rec ray_color ray depth =
     | Some hit_record ->
       let scatter_record = scatter hit_record in
       if scatter_record.does_scatter then
-        vec_mul scatter_record.attenuation (ray_color scatter_record.scattered_ray (depth + 1))
+        vec_mul scatter_record.attenuation (ray_color scatter_record.scattered_ray ~depth: (depth + 1))
       else
         vec_zero
     | None -> 
       let t = ((normalize ray.direction).y +. 1.0) *. 0.5 in
       lerp {x = 1.0; y = 1.0; z = 1.0} {x = 0.5; y = 0.7; z = 1.0} t;;
 
-let calculate_pixel_color (x, y) =
-  let (u, v) = (float_of_int x /. float_of_int (width - 1), float_of_int y /. float_of_int (height - 1)) in 
-  ray_color {
-    origin = camera.look_from; 
-    direction = {
-      x = camera.upper_left_corner.x +. viewport_width *. u;
-      y = camera.upper_left_corner.y -. viewport_height *. v;
-      z = camera.upper_left_corner.z;
-    }
-  } 0;;
+let rec calculate_pixel_color ?(sample=0) (x, y) =
+  if sample >= samples_per_pixel then
+    vec_zero
+  else
+    let (u, v) = (
+      (float_of_int x +. Random.float 1.0) /. float_of_int (width - 1), 
+      (float_of_int y +. Random.float 1.0) /. float_of_int (height - 1)
+    ) in 
+    let color = ray_color {
+      origin = camera.look_from; 
+      direction = {
+        x = camera.upper_left_corner.x +. viewport_width *. u;
+        y = camera.upper_left_corner.y -. viewport_height *. v;
+        z = camera.upper_left_corner.z;
+      }
+    } in
+    vec_add color (calculate_pixel_color (x, y) ~sample: (sample + 1));;
 
 let rec ray_trace ?(i=0) img =
   if i >= width * height then ()
   else
     let (x, y) = (i mod width, i / width) in
     let raw_color = calculate_pixel_color (x, y) in
-    let color = vec_mul_scalar raw_color 255.0 in
+    let color = vec_mul_scalar raw_color (255.0 /. float_of_int samples_per_pixel) in
     let (r, g, b) = (int_of_float color.x, int_of_float color.y, int_of_float color.z) in
     let _ = Image.write_rgb img x y r g b in
     ray_trace img ~i: (i + 1);;
