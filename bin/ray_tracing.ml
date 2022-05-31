@@ -26,6 +26,8 @@ type sphere = {
 type camera = {
   look_from: vec3;
   upper_left_corner: vec3;
+  horizontal_direction: vec3;
+  vertical_direction: vec3;
 };;
 
 type hit_record = {
@@ -57,19 +59,6 @@ let spheres: sphere list = [
 ];;
 
 
-let aspect_ratio = float_of_int width /. float_of_int height;;
-let viewport_height = 2.0;;
-let viewport_width = viewport_height *. aspect_ratio;;
-let focal_length = 1.0;;
-let origin = {x = 0.; y = 0.; z = 0.};;
-let upper_left_corner = {
-  x = viewport_width *. -0.5 -. origin.x;
-  y = viewport_height *. 0.5 -. origin.y; 
-  z = focal_length -. origin.z
-};;
-
-let camera: camera = {look_from = origin; upper_left_corner};;
-
 
 let vec_length_squared vec =
   vec.x *. vec.x +. vec.y *. vec.y +. vec.z *. vec.z;;
@@ -97,6 +86,13 @@ let vec_mul a b =
   
 let vec_dot a b =
   a.x *. b.x +. a.y *. b.y +. a.z *. b.z;;
+
+let vec_cross a b =
+  {
+    x = a.y *. b.z -. a.z *. b.y; 
+    y = a.z *. b.x -. a.x *. b.z; 
+    z = a.x *. b.y -. a.y *. b.x; 
+  };;
 
 let rec random_unit_vector _ =
   let vector = {x = (Random.float 2.0) -. 1.0; y = (Random.float 2.0) -. 1.0; z = (Random.float 2.0) -. 1.0} in
@@ -126,6 +122,30 @@ let vec_refract vec normal refraction_ratio =
 
 let ray_at ray t =
   vec_add ray.origin (vec_mul_scalar ray.direction t);;
+
+let new_camera look_from look_at fov =
+  let aspect_ratio = float_of_int width /. float_of_int height in
+  let viewport_height = tan (fov /. 360.0 *. acos (-.1.0)) *. 2.0 in
+  let viewport_width = viewport_height *. aspect_ratio in
+  let forward = normalize (vec_sub look_at look_from) in
+  let right = normalize (vec_cross {x = 0.0; y = 1.0; z = 0.0} forward) in
+  let up = normalize (vec_cross forward right) in
+  let horizontal_direction = vec_mul_scalar right viewport_width in
+  let vertical_direction = vec_mul_scalar up viewport_height in
+  let upper_left_corner = vec_add 
+    (vec_add 
+      (vec_sub look_from (vec_mul_scalar horizontal_direction 0.5)) 
+      (vec_mul_scalar vertical_direction 0.5)) 
+    forward in
+  {look_from; upper_left_corner; horizontal_direction; vertical_direction};;
+
+
+let camera = new_camera {x = 12.0; y = 2.0; z = -3.0} vec_zero 25.0;;
+
+let get_camera_ray u v =
+  let target = vec_sub (vec_add camera.upper_left_corner (vec_mul_scalar camera.horizontal_direction u)) 
+                       (vec_mul_scalar camera.vertical_direction v) in
+  {origin = camera.look_from; direction = vec_sub target camera.look_from};;
 
 let scatter_material_diffuse hit_record =
   let scatter_direction = vec_add hit_record.normal (random_unit_vector ()) in
@@ -214,14 +234,7 @@ let rec calculate_pixel_color ?(sample=0) (x, y) =
       (float_of_int x +. Random.float 1.0) /. float_of_int (width - 1), 
       (float_of_int y +. Random.float 1.0) /. float_of_int (height - 1)
     ) in 
-    let color = ray_color {
-      origin = camera.look_from; 
-      direction = {
-        x = camera.upper_left_corner.x +. viewport_width *. u;
-        y = camera.upper_left_corner.y -. viewport_height *. v;
-        z = camera.upper_left_corner.z;
-      }
-    } in
+    let color = ray_color (get_camera_ray u v) in
     vec_add color (calculate_pixel_color (x, y) ~sample: (sample + 1));;
 
 let rec ray_trace ?(i=0) img =
