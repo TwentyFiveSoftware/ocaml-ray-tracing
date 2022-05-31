@@ -9,11 +9,12 @@ type ray = {
   direction: vec3;
 };;
 
-type material_type = Diffuse | Metal;;
+type material_type = Diffuse | Metal | Dielectric;;
 
 type material = {
   material_type: material_type;
   albedo: vec3;
+  refraction_index: float;
 };;
 
 type sphere = {
@@ -46,9 +47,13 @@ let (width, height) = (800, 450);;
 let max_ray_recursive_depth = 50;;
 let samples_per_pixel = 10;;
 
+
+let vec_zero = {x = 0.0; y = 0.0; z = 0.0};;
+
 let spheres: sphere list = [
-  {center = {x = 0.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Diffuse; albedo = {x = 0.9; y = 0.9; z = 0.9}}};
-  {center = {x = -1.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Metal; albedo = {x = 0.9; y = 0.9; z = 0.9}}}
+  {center = {x = 0.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Diffuse; albedo = {x = 0.9; y = 0.9; z = 0.9}; refraction_index = 0.0}};
+  {center = {x = -1.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Metal; albedo = {x = 0.9; y = 0.9; z = 0.9}; refraction_index = 0.0}};
+  {center = {x = 1.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Dielectric; albedo = vec_zero; refraction_index = 1.5}}
 ];;
 
 
@@ -65,8 +70,6 @@ let upper_left_corner = {
 
 let camera: camera = {look_from = origin; upper_left_corner};;
 
-
-let vec_zero = {x = 0.0; y = 0.0; z = 0.0};;
 
 let vec_length_squared vec =
   vec.x *. vec.x +. vec.y *. vec.y +. vec.z *. vec.z;;
@@ -109,6 +112,18 @@ let vec_is_near_zero vec =
 let vec_reflect vec normal =
   vec_sub vec (vec_mul_scalar normal (2.0 *. vec_dot vec normal))
 
+let vec_refract vec normal refraction_ratio = 
+  let cos_theta = min (vec_dot (vec_neg vec) normal) 1.0 in
+  let sin_theta = sqrt (1.0 -. cos_theta *. cos_theta) in
+  let r0 = (1.0 -. refraction_ratio) /. (1.0 +. refraction_ratio) in
+  let reflectance = r0 *. r0 +. (1.0 -. r0 *. r0) *. ((1.0 -. cos_theta) ** 5.0) in
+  if refraction_ratio *. sin_theta > 1.0 || reflectance > Random.float 1.0 then
+    vec_reflect vec normal
+  else
+    let r_out_perpendicular = vec_mul_scalar (vec_add vec (vec_mul_scalar normal cos_theta)) refraction_ratio in
+    let r_out_parallel = vec_mul_scalar normal (-.sqrt (1.0 -. vec_dot r_out_perpendicular r_out_perpendicular)) in
+    vec_add r_out_perpendicular r_out_parallel;;
+
 let ray_at ray t =
   vec_add ray.origin (vec_mul_scalar ray.direction t);;
 
@@ -121,12 +136,22 @@ let scatter_material_diffuse hit_record =
 let scatter_material_metal hit_record ray =
   let scatter_direction = vec_reflect (normalize ray.direction) hit_record.normal in
   let scattered_ray = {origin = hit_record.point; direction = scatter_direction} in
-  {does_scatter = true; attenuation = hit_record.material.albedo; scattered_ray};;
+  {does_scatter = vec_dot scatter_direction hit_record.normal > 0.0; attenuation = hit_record.material.albedo; scattered_ray};;
+
+let scatter_material_dielectric hit_record ray =
+  let refraction_ratio = if hit_record.front_face then 
+      1.0 /. hit_record.material.refraction_index
+    else 
+      hit_record.material.refraction_index in
+  let scatter_direction = vec_refract (normalize ray.direction) hit_record.normal refraction_ratio in
+  let scattered_ray = {origin = hit_record.point; direction = scatter_direction} in
+  {does_scatter = true; attenuation = {x = 1.0; y = 1.0; z = 1.0}; scattered_ray};;
 
 let scatter hit_record ray =
   match hit_record.material.material_type with
   | Diffuse -> scatter_material_diffuse hit_record
   | Metal -> scatter_material_metal hit_record ray
+  | Dielectric -> scatter_material_dielectric hit_record ray;;
 
 let ray_hits_sphere ray sphere t_min =
   let oc = vec_sub ray.origin sphere.center in
