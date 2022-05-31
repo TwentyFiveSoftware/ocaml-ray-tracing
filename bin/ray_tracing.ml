@@ -94,12 +94,24 @@ let vec_mul a b =
 let vec_dot a b =
   a.x *. b.x +. a.y *. b.y +. a.z *. b.z;;
 
+let rec random_unit_vector _ =
+  let vector = {x = (Random.float 2.0) -. 1.0; y = (Random.float 2.0) -. 1.0; z = (Random.float 2.0) -. 1.0} in
+  if vec_length_squared vector < 1.0 then
+    normalize vector
+  else
+    random_unit_vector ()
+
+let vec_is_near_zero vec =
+  let epsilon = 1e-8 in
+  (abs_float vec.x) < epsilon && (abs_float vec.y) < epsilon && (abs_float vec.z) < epsilon
 
 let ray_at ray t =
   vec_add ray.origin (vec_mul_scalar ray.direction t);;
 
 let scatter_material_diffuse hit_record =
-  let scattered_ray = {origin = hit_record.point; direction = hit_record.normal} in
+  let scatter_direction = vec_add hit_record.normal (random_unit_vector ()) in
+  let scatter_direction = if vec_is_near_zero scatter_direction then hit_record.normal else scatter_direction in
+  let scattered_ray = {origin = hit_record.point; direction = scatter_direction} in
   {does_scatter = true; attenuation = hit_record.material.albedo; scattered_ray};;
 
 let scatter hit_record =
