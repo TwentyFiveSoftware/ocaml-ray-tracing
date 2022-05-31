@@ -44,21 +44,19 @@ type scatter_record = {
   scattered_ray: ray;
 };;
 
+type scene = {
+  spheres: sphere list;
+};;
+
+
 
 let (width, height) = (800, 450);;
 let max_ray_recursive_depth = 50;;
-let samples_per_pixel = 10;;
+let samples_per_pixel = 1;;
+
 
 
 let vec_zero = {x = 0.0; y = 0.0; z = 0.0};;
-
-let spheres: sphere list = [
-  {center = {x = 0.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Diffuse; albedo = {x = 0.9; y = 0.9; z = 0.9}; refraction_index = 0.0}};
-  {center = {x = -1.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Metal; albedo = {x = 0.9; y = 0.9; z = 0.9}; refraction_index = 0.0}};
-  {center = {x = 1.; y = 0.; z = 1.}; radius = 0.5; material = {material_type = Dielectric; albedo = vec_zero; refraction_index = 1.5}}
-];;
-
-
 
 let vec_length_squared vec =
   vec.x *. vec.x +. vec.y *. vec.y +. vec.z *. vec.z;;
@@ -140,7 +138,29 @@ let new_camera look_from look_at fov =
   {look_from; upper_left_corner; horizontal_direction; vertical_direction};;
 
 
+let generate_scene _ =
+  let rec generate_small_spheres i =
+    if i >= 21 * 21 then
+      []
+    else 
+      let x = i mod 22 - 11 in
+      let z = i / 22 - 11 in
+      let center = {x = float_of_int x +. Random.float 0.7; y = 0.2; z = float_of_int z +. Random.float 0.7} in
+      let material_random = Random.float 1.0 in
+      let sphere = (if material_random < 0.8 then
+          {center; radius = 0.2; material = {material_type = Diffuse; albedo = {x = 1.0; y = 0.0; z = 0.0}; refraction_index = 0.0}}
+        else if material_random < 0.95 then
+          {center; radius = 0.2; material = {material_type = Metal; albedo = {x = 0.0; y = 0.0; z = 1.0}; refraction_index = 0.0}}
+        else
+          {center; radius = 0.2; material = {material_type = Dielectric; albedo = vec_zero; refraction_index = 1.5}}) in
+      sphere::generate_small_spheres (i + 1)
+  in
+  let spheres = generate_small_spheres 0 in
+  {spheres};;
+
+
 let camera = new_camera {x = 12.0; y = 2.0; z = -3.0} vec_zero 25.0;;
+let scene = generate_scene ();;
 
 let get_camera_ray u v =
   let target = vec_sub (vec_add camera.upper_left_corner (vec_mul_scalar camera.horizontal_direction u)) 
@@ -198,7 +218,7 @@ let ray_hits_sphere ray sphere t_min =
 
 
 let calculate_ray_collision ray =
-  let hit_records = List.filter_map (fun sphere -> ray_hits_sphere ray sphere 0.001) spheres in
+  let hit_records = List.filter_map (fun sphere -> ray_hits_sphere ray sphere 0.001) scene.spheres in
   let colliding_hit_records = List.filter (fun hit_record -> hit_record.t > 0.001) hit_records in
   let sorted_records = List.sort (fun a b -> if a.t > b.t then 1 else -1) colliding_hit_records in
   match sorted_records with
