@@ -121,6 +121,29 @@ let vec_refract vec normal refraction_ratio =
 let ray_at ray t =
   vec_add ray.origin (vec_mul_scalar ray.direction t);;
 
+let random_color _ =
+  let hsv_to_rgb h s v =
+    let c = s *. v in
+    let x = c *. (1.0 -. abs_float ((mod_float (h /. 60.0) 2.0) -. 1.0)) in
+    let m = v -. c in
+    let (r, g, b) = 
+      if h >= 0.0 && h < 60.0 then
+        (c,x,0.0)
+      else if h >= 60.0 && h < 120.0 then
+        (x, c, 0.0)
+      else if h >= 120.0 && h < 180.0 then
+        (0.0, c, x)
+      else if h >= 180.0 && h < 240.0 then
+        (0.0, x, c)
+      else if h >= 240.0 && h < 300.0 then
+        (x, 0.0, c)
+      else
+        (c, 0.0, x) in
+    {x = r +. m; y = g +. m; z = b +. m}
+  in
+  hsv_to_rgb (Random.float 360.0) 0.75 0.45;;
+
+
 let new_camera look_from look_at fov =
   let aspect_ratio = float_of_int width /. float_of_int height in
   let viewport_height = tan (fov /. 360.0 *. acos (-.1.0)) *. 2.0 in
@@ -148,14 +171,23 @@ let generate_scene _ =
       let center = {x = float_of_int x +. Random.float 0.7; y = 0.2; z = float_of_int z +. Random.float 0.7} in
       let material_random = Random.float 1.0 in
       let sphere = (if material_random < 0.8 then
-          {center; radius = 0.2; material = {material_type = Diffuse; albedo = {x = 1.0; y = 0.0; z = 0.0}; refraction_index = 0.0}}
+          {center; radius = 0.2; material = {material_type = Diffuse; albedo = random_color (); refraction_index = 0.0}}
         else if material_random < 0.95 then
-          {center; radius = 0.2; material = {material_type = Metal; albedo = {x = 0.0; y = 0.0; z = 1.0}; refraction_index = 0.0}}
+          {center; radius = 0.2; material = {material_type = Metal; albedo = random_color (); refraction_index = 0.0}}
         else
           {center; radius = 0.2; material = {material_type = Dielectric; albedo = vec_zero; refraction_index = 1.5}}) in
       sphere::generate_small_spheres (i + 1)
   in
   let spheres = generate_small_spheres 0 in
+  let ground_sphere = {center = {x = 0.0; y = -1000.0; z = 1.0}; radius = 1000.0; material = 
+                      {material_type = Diffuse; albedo = {x = 0.95; y = 0.95; z = 0.95}; refraction_index = 0.0}} in
+  let center_sphere = {center = {x = 0.0; y = 1.0; z = 0.0}; radius = 1.0; material = 
+                      {material_type = Dielectric; albedo = vec_zero; refraction_index = 1.5}} in
+  let left_sphere = {center = {x = -4.0; y = 1.0; z = 0.0}; radius = 1.0; material = 
+                      {material_type = Diffuse; albedo = {x = 0.6; y = 0.3; z = 0.1}; refraction_index = 0.0}} in
+  let right_sphere = {center = {x = 4.0; y = 1.0; z = 0.0}; radius = 1.0; material = 
+                      {material_type = Metal; albedo = {x = 0.7; y = 0.6; z = 0.5}; refraction_index = 0.0}} in
+  let spheres = ground_sphere :: center_sphere :: left_sphere :: right_sphere :: spheres in
   {spheres};;
 
 
