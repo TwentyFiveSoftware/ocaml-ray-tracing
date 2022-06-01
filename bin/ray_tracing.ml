@@ -92,6 +92,9 @@ let vec_cross a b =
     z = a.x *. b.y -. a.y *. b.x; 
   };;
 
+let vec_sqrt vec =
+  {x = sqrt vec.x; y = sqrt vec.y; z= sqrt vec.z};;
+
 let rec random_unit_vector _ =
   let vector = {x = (Random.float 2.0) -. 1.0; y = (Random.float 2.0) -. 1.0; z = (Random.float 2.0) -. 1.0} in
   if vec_length_squared vector < 1.0 then
@@ -292,9 +295,15 @@ let rec calculate_pixel_color ?(sample=0) (x, y) =
 let rec ray_trace ?(i=0) img =
   if i >= width * height then ()
   else
+    let  _ = if (i mod width) = 0 then 
+      let _ = print_endline (string_of_int (i / width + 1) ^ " / " ^ string_of_int height) in
+      () else ()
+    in
     let (x, y) = (i mod width, i / width) in
     let raw_color = calculate_pixel_color (x, y) in
-    let color = vec_mul_scalar raw_color (255.0 /. float_of_int samples_per_pixel) in
+    let color = vec_mul_scalar raw_color (1.0 /. float_of_int samples_per_pixel) in
+    let color = vec_sqrt color in
+    let color = vec_mul_scalar color 255.0 in
     let (r, g, b) = (int_of_float color.x, int_of_float color.y, int_of_float color.z) in
     let _ = Image.write_rgb img x y r g b in
     ray_trace img ~i: (i + 1);;
