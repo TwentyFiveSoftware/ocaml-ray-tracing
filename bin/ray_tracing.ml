@@ -11,9 +11,12 @@ type ray = {
 
 type material_type = Diffuse | Metal | Dielectric;;
 
+type texture_type = Solid | Checkered;;
+
 type material = {
   material_type: material_type;
-  albedo: vec3;
+  texture_type: texture_type;
+  albedo: vec3 list;
   refraction_index: float;
 };;
 
@@ -174,22 +177,23 @@ let generate_scene _ =
       let center = {x = float_of_int x +. Random.float 0.7; y = 0.2; z = float_of_int z +. Random.float 0.7} in
       let material_random = Random.float 1.0 in
       let sphere = (if material_random < 0.8 then
-          {center; radius = 0.2; material = {material_type = Diffuse; albedo = random_color (); refraction_index = 0.0}}
+          {center; radius = 0.2; material = {material_type = Diffuse; texture_type = Solid; albedo = [random_color ()]; refraction_index = 0.0}}
         else if material_random < 0.95 then
-          {center; radius = 0.2; material = {material_type = Metal; albedo = random_color (); refraction_index = 0.0}}
+          {center; radius = 0.2; material = {material_type = Metal; texture_type = Solid; albedo = [random_color ()]; refraction_index = 0.0}}
         else
-          {center; radius = 0.2; material = {material_type = Dielectric; albedo = vec_zero; refraction_index = 1.5}}) in
+          {center; radius = 0.2; material = {material_type = Dielectric; texture_type = Solid; albedo = [vec_zero]; refraction_index = 1.5}}) in
       sphere::generate_small_spheres (i + 1)
   in
   let spheres = generate_small_spheres 0 in
   let ground_sphere = {center = {x = 0.0; y = -1000.0; z = 1.0}; radius = 1000.0; material = 
-                      {material_type = Diffuse; albedo = {x = 0.95; y = 0.95; z = 0.95}; refraction_index = 0.0}} in
+                      {material_type = Diffuse; texture_type = Checkered; 
+                       albedo = [{x = 0.05; y = 0.05; z = 0.05}; {x = 0.95; y = 0.95; z = 0.95}]; refraction_index = 0.0}} in
   let center_sphere = {center = {x = 0.0; y = 1.0; z = 0.0}; radius = 1.0; material = 
-                      {material_type = Dielectric; albedo = vec_zero; refraction_index = 1.5}} in
+                      {material_type = Dielectric; texture_type = Solid; albedo = [vec_zero]; refraction_index = 1.5}} in
   let left_sphere = {center = {x = -4.0; y = 1.0; z = 0.0}; radius = 1.0; material = 
-                      {material_type = Diffuse; albedo = {x = 0.6; y = 0.3; z = 0.1}; refraction_index = 0.0}} in
+                      {material_type = Diffuse; texture_type = Solid; albedo = [{x = 0.6; y = 0.3; z = 0.1}]; refraction_index = 0.0}} in
   let right_sphere = {center = {x = 4.0; y = 1.0; z = 0.0}; radius = 1.0; material = 
-                      {material_type = Metal; albedo = {x = 0.7; y = 0.6; z = 0.5}; refraction_index = 0.0}} in
+                      {material_type = Metal; texture_type = Solid; albedo = [{x = 0.7; y = 0.6; z = 0.5}]; refraction_index = 0.0}} in
   let spheres = ground_sphere :: center_sphere :: left_sphere :: right_sphere :: spheres in
   {spheres};;
 
@@ -202,16 +206,31 @@ let get_camera_ray u v =
                        (vec_mul_scalar camera.vertical_direction v) in
   {origin = camera.look_from; direction = vec_sub target camera.look_from};;
 
+let texture_get_color material point = match material.texture_type with
+  | Solid -> (
+      match material.albedo with
+      | [] -> vec_zero
+      | albedo::_ -> albedo)
+  | Checkered -> (
+      let size = 6.0 in
+      let sines = sin (size *. point.x) *. sin (size *. point.y) *. sin (size *. point.z) in
+      match material.albedo with
+      | [] -> vec_zero
+      | [albedo] -> albedo
+      | color_even::color_odd::_ ->
+        if sines < 0.0 then color_odd else color_even);;
+
 let scatter_material_diffuse hit_record =
   let scatter_direction = vec_add hit_record.normal (random_unit_vector ()) in
   let scatter_direction = if vec_is_near_zero scatter_direction then hit_record.normal else scatter_direction in
   let scattered_ray = {origin = hit_record.point; direction = scatter_direction} in
-  {does_scatter = true; attenuation = hit_record.material.albedo; scattered_ray};;
+  {does_scatter = true; attenuation = texture_get_color hit_record.material hit_record.point; scattered_ray};;
 
 let scatter_material_metal hit_record ray =
   let scatter_direction = vec_reflect (normalize ray.direction) hit_record.normal in
   let scattered_ray = {origin = hit_record.point; direction = scatter_direction} in
-  {does_scatter = vec_dot scatter_direction hit_record.normal > 0.0; attenuation = hit_record.material.albedo; scattered_ray};;
+  {does_scatter = vec_dot scatter_direction hit_record.normal > 0.0; 
+   attenuation = texture_get_color hit_record.material hit_record.point; scattered_ray};;
 
 let scatter_material_dielectric hit_record ray =
   let refraction_ratio = if hit_record.front_face then 
