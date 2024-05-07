@@ -329,5 +329,12 @@ let rec ray_trace ?(i=0) img =
 
     
 let img: Image.image = Image.create_rgb width height ~alpha: false ~max_val: 255;;
+
+let start_time = int_of_float (Unix.gettimeofday () *. 1000.0);;
+
 ray_trace img;;
+
+let end_time = int_of_float (Unix.gettimeofday () *. 1000.0);;
+Printf.printf "Rendered %d samples/pixel with %d threads in %d ms\n" samples_per_pixel 1 (end_time - start_time);;
+
 ImageLib.PNG.write (ImageUtil_unix.chunk_writer_of_path "render.png") img;;
