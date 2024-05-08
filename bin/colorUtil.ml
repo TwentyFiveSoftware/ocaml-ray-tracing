@@ -1,20 +1,22 @@
 include Vec3
 
 module ColorUtil = struct
-  let random_color _ =
-    let hsv_to_rgb h s v =
-      let c = s *. v in
-      let x = c *. (1.0 -. abs_float (mod_float (h /. 60.0) 2.0 -. 1.0)) in
-      let m = v -. c in
-      let r, g, b =
-        if h >= 0.0 && h < 60.0 then (c, x, 0.0)
-        else if h >= 60.0 && h < 120.0 then (x, c, 0.0)
-        else if h >= 120.0 && h < 180.0 then (0.0, c, x)
-        else if h >= 180.0 && h < 240.0 then (0.0, x, c)
-        else if h >= 240.0 && h < 300.0 then (x, 0.0, c)
-        else (c, 0.0, x)
-      in
-      { Vec3.x = r +. m; y = g +. m; z = b +. m }
+  let hsv_to_rgb hue s v =
+    let h = hue /. 60.0 in
+    let fraction = h -. float_of_int (int_of_float h) in
+    let p = v *. (1.0 -. s) in
+    let q = v *. (1.0 -. (s *. fraction)) in
+    let t = v *. (1.0 -. (s *. (1.0 -. fraction))) in
+    let r, g, b =
+      if 0.0 <= h && h < 1.0 then (v, t, p)
+      else if 1.0 <= h && h < 2.0 then (q, v, p)
+      else if 2.0 <= h && h < 3.0 then (p, v, t)
+      else if 3.0 <= h && h < 4.0 then (p, q, v)
+      else if 4.0 <= h && h < 5.0 then (t, p, v)
+      else if 5.0 <= h && h < 6.0 then (v, p, q)
+      else (0.0, 0.0, 0.0)
     in
-    hsv_to_rgb (Random.float 360.0) 0.75 0.45
+    { Vec3.x = r; y = g; z = b }
+
+  let random_color () = hsv_to_rgb (Random.float 360.0) 0.75 0.45
 end

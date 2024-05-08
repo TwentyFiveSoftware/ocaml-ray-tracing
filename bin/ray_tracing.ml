@@ -3,7 +3,7 @@ include Renderer
 include Scene
 include Camera
 
-let width, height = (800, 450)
+let width, height = (1920, 1080)
 let max_ray_recursive_depth = 50
 let samples_per_pixel = 1
 
@@ -25,14 +25,15 @@ let renderer =
   }
 
 let img : Image.image = Image.create_rgb width height ~alpha:false ~max_val:255
-let start_time = int_of_float (Unix.gettimeofday () *. 1000.0);;
+let start_time_ms = int_of_float (Unix.gettimeofday () *. 1000.0);;
 
 Renderer.render renderer img
 
-let end_time = int_of_float (Unix.gettimeofday () *. 1000.0);;
+let end_time_ms = int_of_float (Unix.gettimeofday () *. 1000.0);;
 
 Printf.printf "Rendered %d samples/pixel with %d threads in %d ms\n"
-  samples_per_pixel 1 (end_time - start_time)
+  samples_per_pixel 1
+  (end_time_ms - start_time_ms)
 ;;
 
 ImageLib.PNG.write (ImageUtil_unix.chunk_writer_of_path "render.png") img

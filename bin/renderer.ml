@@ -56,11 +56,10 @@ module Renderer = struct
     else
       let _ =
         if i mod renderer.width = 0 then
+          let row = (i / renderer.width) + 1 in
           let _ =
-            print_endline
-              (string_of_int ((i / renderer.width) + 1)
-              ^ " / "
-              ^ string_of_int renderer.height)
+            Printf.printf "%d / %d (%.2f%%)\n%!" row renderer.height
+              (float_of_int row /. float_of_int renderer.height *. 100.0)
           in
           ()
         else ()

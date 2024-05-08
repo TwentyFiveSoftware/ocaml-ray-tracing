@@ -71,8 +71,7 @@ module Scene = struct
       {
         Sphere.center = { x = 4.0; y = 1.0; z = 0.0 };
         radius = 1.0;
-        material =
-          Material.diffuse (Texture.solid { x = 0.7; y = 0.6; z = 0.5 });
+        material = Material.metal (Texture.solid { x = 0.7; y = 0.6; z = 0.5 });
       }
     in
     let spheres =
