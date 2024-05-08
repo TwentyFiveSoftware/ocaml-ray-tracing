@@ -1,0 +1,8 @@
+lib: [
+  "_build/install/default/lib/ray_tracing/META"
+  "_build/install/default/lib/ray_tracing/dune-package"
+  "_build/install/default/lib/ray_tracing/opam"
+]
+bin: [
+  "_build/install/default/bin/ray_tracing"
+]
