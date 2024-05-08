@@ -9,6 +9,7 @@ module Renderer = struct
     height : int;
     samples_per_pixel : int;
     max_ray_recursive_depth : int;
+    render_threads : int;
     scene : Scene.t;
     camera : Camera.t;
   }
@@ -51,7 +52,7 @@ module Renderer = struct
       Vec3.vec_add color
         (calculate_pixel_color renderer (x, y) ~sample:(sample + 1))
 
-  let rec render_row renderer y x =
+  let rec render_row renderer img y x =
     if x >= renderer.width then []
     else
       let raw_color = calculate_pixel_color renderer (x, y) in
@@ -60,17 +61,31 @@ module Renderer = struct
           (1.0 /. float_of_int renderer.samples_per_pixel)
       in
       let color = Vec3.vec_sqrt color in
-      color :: render_row renderer y (x + 1)
-
-  let rec render_rows renderer y =
-    if y >= renderer.height then []
-    else
-      let _ =
-        Printf.printf "%d / %d (%.2f%%)\n%!" (y + 1) renderer.height
-          (float_of_int (y + 1) /. float_of_int renderer.height *. 100.0)
+      let color = Vec3.vec_mul_scalar color 255.0 in
+      let r, g, b =
+        (int_of_float color.x, int_of_float color.y, int_of_float color.z)
       in
-      let row = render_row renderer y 0 in
-      row @ render_rows renderer (y + 1)
+      let _ = Image.write_rgb img x y r g b in
+      color :: render_row renderer img y (x + 1)
 
-  let render renderer = render_rows renderer 0
+  let render renderer img =
+    let next_row = Atomic.make 0 in
+    let render_worker () =
+      let rec loop () =
+        let y = Atomic.fetch_and_add next_row 1 in
+        if y >= renderer.height then ()
+        else
+          let _ =
+            Printf.printf "%d / %d (%.2f%%)\n%!" (y + 1) renderer.height
+              (float_of_int (y + 1) /. float_of_int renderer.height *. 100.0)
+          in
+          let _ = render_row renderer img y 0 in
+          loop ()
+      in
+      loop ()
+    in
+    let render_workers =
+      List.init renderer.render_threads (fun _ -> Domain.spawn render_worker)
+    in
+    List.iter Domain.join render_workers
 end
