@@ -9,7 +9,7 @@ let samples_per_pixel = 1
 let max_ray_recursive_depth = 50
 
 (* for some reason, more threads decrease performance drastically (might be drastic GC overhead)*)
-let render_threads = 12
+let render_threads = 16
 
 let camera =
   Camera.new_camera

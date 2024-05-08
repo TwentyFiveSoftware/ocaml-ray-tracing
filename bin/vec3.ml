@@ -2,28 +2,36 @@ module Vec3 = struct
   type t = { x : float; y : float; z : float }
 
   let zero = { x = 0.0; y = 0.0; z = 0.0 }
-  let vec_neg vec = { x = -.vec.x; y = -.vec.y; z = -.vec.z }
-  let vec_add a b = { x = a.x +. b.x; y = a.y +. b.y; z = a.z +. b.z }
-  let vec_sub a b = { x = a.x -. b.x; y = a.y -. b.y; z = a.z -. b.z }
+  let[@inline always] vec_neg vec = { x = -.vec.x; y = -.vec.y; z = -.vec.z }
 
-  let vec_mul_scalar vec scalar =
+  let[@inline always] vec_add a b =
+    { x = a.x +. b.x; y = a.y +. b.y; z = a.z +. b.z }
+
+  let[@inline always] vec_sub a b =
+    { x = a.x -. b.x; y = a.y -. b.y; z = a.z -. b.z }
+
+  let[@inline always] vec_mul_scalar vec scalar =
     { x = vec.x *. scalar; y = vec.y *. scalar; z = vec.z *. scalar }
 
-  let vec_mul a b = { x = a.x *. b.x; y = a.y *. b.y; z = a.z *. b.z }
-  let vec_dot a b = (a.x *. b.x) +. (a.y *. b.y) +. (a.z *. b.z)
+  let[@inline always] vec_mul a b =
+    { x = a.x *. b.x; y = a.y *. b.y; z = a.z *. b.z }
 
-  let vec_cross a b =
+  let[@inline always] vec_dot a b = (a.x *. b.x) +. (a.y *. b.y) +. (a.z *. b.z)
+
+  let[@inline always] vec_cross a b =
     {
       x = (a.y *. b.z) -. (a.z *. b.y);
       y = (a.z *. b.x) -. (a.x *. b.z);
       z = (a.x *. b.y) -. (a.y *. b.x);
     }
 
-  let vec_sqrt vec = { x = sqrt vec.x; y = sqrt vec.y; z = sqrt vec.z }
-  let vec_length_squared vec = vec_dot vec vec
-  let vec_length vec = sqrt (vec_length_squared vec)
+  let[@inline always] vec_sqrt vec =
+    { x = sqrt vec.x; y = sqrt vec.y; z = sqrt vec.z }
 
-  let normalize vec =
+  let[@inline always] vec_length_squared vec = vec_dot vec vec
+  let[@inline always] vec_length vec = sqrt (vec_length_squared vec)
+
+  let[@inline always] normalize vec =
     let length = vec_length vec in
     { x = vec.x /. length; y = vec.y /. length; z = vec.z /. length }
 

@@ -6,3 +6,6 @@ lib: [
 bin: [
   "_build/install/default/bin/ray_tracing"
 ]
+doc: [
+  "_build/install/default/doc/ray_tracing/README.md"
+]
