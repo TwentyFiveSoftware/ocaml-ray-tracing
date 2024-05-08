@@ -2,16 +2,6 @@ module Vec3 = struct
   type t = { x : float; y : float; z : float }
 
   let zero = { x = 0.0; y = 0.0; z = 0.0 }
-
-  let vec_length_squared vec =
-    (vec.x *. vec.x) +. (vec.y *. vec.y) +. (vec.z *. vec.z)
-
-  let vec_length vec = sqrt (vec_length_squared vec)
-
-  let normalize vec =
-    let length = vec_length vec in
-    { x = vec.x /. length; y = vec.y /. length; z = vec.z /. length }
-
   let vec_neg vec = { x = -.vec.x; y = -.vec.y; z = -.vec.z }
   let vec_add a b = { x = a.x +. b.x; y = a.y +. b.y; z = a.z +. b.z }
   let vec_sub a b = { x = a.x -. b.x; y = a.y -. b.y; z = a.z -. b.z }
@@ -30,6 +20,12 @@ module Vec3 = struct
     }
 
   let vec_sqrt vec = { x = sqrt vec.x; y = sqrt vec.y; z = sqrt vec.z }
+  let vec_length_squared vec = vec_dot vec vec
+  let vec_length vec = sqrt (vec_length_squared vec)
+
+  let normalize vec =
+    let length = vec_length vec in
+    { x = vec.x /. length; y = vec.y /. length; z = vec.z /. length }
 
   let vec_is_near_zero vec =
     let epsilon = 1e-8 in

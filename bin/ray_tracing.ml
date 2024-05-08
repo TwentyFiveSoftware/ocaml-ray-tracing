@@ -7,7 +7,9 @@ include ImageUtil
 let width, height = (1920, 1080)
 let samples_per_pixel = 1
 let max_ray_recursive_depth = 50
-let render_threads = 24
+
+(* for some reason, more threads decrease performance drastically (might be drastic GC overhead)*)
+let render_threads = 12
 
 let camera =
   Camera.new_camera
