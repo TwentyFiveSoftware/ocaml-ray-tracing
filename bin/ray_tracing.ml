@@ -2,6 +2,7 @@ include Vec3
 include Renderer
 include Scene
 include Camera
+include ImageUtil
 
 let width, height = (1920, 1080)
 let max_ray_recursive_depth = 50
@@ -25,10 +26,8 @@ let renderer =
   }
 
 let img : Image.image = Image.create_rgb width height ~alpha:false ~max_val:255
-let start_time_ms = int_of_float (Unix.gettimeofday () *. 1000.0);;
-
-Renderer.render renderer img
-
+let start_time_ms = int_of_float (Unix.gettimeofday () *. 1000.0)
+let pixels = Renderer.render renderer
 let end_time_ms = int_of_float (Unix.gettimeofday () *. 1000.0);;
 
 Printf.printf "Rendered %d samples/pixel with %d threads in %d ms\n"
@@ -36,4 +35,5 @@ Printf.printf "Rendered %d samples/pixel with %d threads in %d ms\n"
   (end_time_ms - start_time_ms)
 ;;
 
+ImageUtil.write_pixels_to_image img pixels width height;;
 ImageLib.PNG.write (ImageUtil_unix.chunk_writer_of_path "render.png") img

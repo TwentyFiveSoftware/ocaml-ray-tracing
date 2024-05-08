@@ -51,30 +51,26 @@ module Renderer = struct
       Vec3.vec_add color
         (calculate_pixel_color renderer (x, y) ~sample:(sample + 1))
 
-  let rec render renderer ?(i = 0) img =
-    if i >= renderer.width * renderer.height then ()
+  let rec render_row renderer y x =
+    if x >= renderer.width then []
     else
-      let _ =
-        if i mod renderer.width = 0 then
-          let row = (i / renderer.width) + 1 in
-          let _ =
-            Printf.printf "%d / %d (%.2f%%)\n%!" row renderer.height
-              (float_of_int row /. float_of_int renderer.height *. 100.0)
-          in
-          ()
-        else ()
-      in
-      let x, y = (i mod renderer.width, i / renderer.width) in
       let raw_color = calculate_pixel_color renderer (x, y) in
       let color =
         Vec3.vec_mul_scalar raw_color
           (1.0 /. float_of_int renderer.samples_per_pixel)
       in
       let color = Vec3.vec_sqrt color in
-      let color = Vec3.vec_mul_scalar color 255.0 in
-      let r, g, b =
-        (int_of_float color.x, int_of_float color.y, int_of_float color.z)
+      color :: render_row renderer y (x + 1)
+
+  let rec render_rows renderer y =
+    if y >= renderer.height then []
+    else
+      let _ =
+        Printf.printf "%d / %d (%.2f%%)\n%!" (y + 1) renderer.height
+          (float_of_int (y + 1) /. float_of_int renderer.height *. 100.0)
       in
-      let _ = Image.write_rgb img x y r g b in
-      render renderer img ~i:(i + 1)
+      let row = render_row renderer y 0 in
+      row @ render_rows renderer (y + 1)
+
+  let render renderer = render_rows renderer 0
 end
