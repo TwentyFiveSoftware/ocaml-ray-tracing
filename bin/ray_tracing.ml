@@ -5,7 +5,7 @@ include Camera
 include ImageUtil
 
 let width, height = (1920, 1080)
-let samples_per_pixel = 1
+let samples_per_pixel = 100
 let max_ray_recursive_depth = 50
 
 (* for some reason, more threads decrease performance drastically (might be drastic GC overhead)*)
